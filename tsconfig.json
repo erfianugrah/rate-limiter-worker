@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "lib": ["ES2020"],
+    "types": ["@cloudflare/workers-types"],
+    "outDir": "dist",
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules", 
+    "dist", 
+    "src/condition-evaluator.js",
+    "src/config-manager.js",
+    "src/fingerprint.js",
+    "src/index.js",
+    "src/rate-limit-handler.js",
+    "src/rate-limiter.js",
+    "src/staticpages.ts",
+    "src/utils.js"
+  ]
+}

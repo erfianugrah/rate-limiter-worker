@@ -1,13 +1,24 @@
 let cachedConfig = null;
 let lastConfigFetch = 0;
-// const CONFIG_CACHE_TTL = 5 * 1000;
-// let isRefreshing = false;
+const CONFIG_CACHE_TTL = 60 * 1000; // 1 minute TTL
+let isRefreshing = false;
 
-export async function getConfig(env) {
-  if (!cachedConfig) {
-    await fetchAndUpdateConfig(env);
+export async function getConfig(env, ctx) {
+  const now = Date.now();
+  
+  // Return fresh cached config immediately
+  if (cachedConfig && (now - lastConfigFetch < CONFIG_CACHE_TTL)) {
+    return cachedConfig;
   }
-  return cachedConfig;
+  
+  // Stale-while-revalidate pattern - use stale cache while refreshing in background
+  if (cachedConfig && !isRefreshing && ctx) {
+    ctx.waitUntil(refreshConfigAsync(env));
+    return cachedConfig;
+  }
+  
+  // No valid cache, must wait for fetch
+  return await fetchAndUpdateConfig(env);
 }
 
 async function fetchAndUpdateConfig(env) {
@@ -38,25 +49,19 @@ async function fetchAndUpdateConfig(env) {
   }
 }
 
-// export async function backgroundRefresh(env) {
-//   if (isRefreshing) return;
-//   isRefreshing = true;
-//
-//   while (true) {
-//     try {
-//       const now = Date.now();
-//       if (now - lastConfigFetch >= CONFIG_CACHE_TTL) {
-//         console.log("Background refresh: Fetching new config...");
-//         await fetchAndUpdateConfig(env);
-//       } else {
-//         console.log("Background refresh: Config is still fresh");
-//       }
-//     } catch (error) {
-//       console.error("Error in background refresh:", error);
-//     }
-//     await new Promise((resolve) => setTimeout(resolve, 5000));
-//   }
-// }
+async function refreshConfigAsync(env) {
+  if (isRefreshing) return;
+  isRefreshing = true;
+  
+  try {
+    console.log("Background refresh: Fetching new config...");
+    await fetchAndUpdateConfig(env);
+  } catch (error) {
+    console.error("Error in background refresh:", error);
+  } finally {
+    isRefreshing = false;
+  }
+}
 
 export function isValidRuleStructure(rule) {
   if (!rule.initialMatch) {

@@ -219,6 +219,21 @@ const fieldFunctions = {
   cf: (request, cfProperty) => getNestedValue(request.cf, cfProperty),
 };
 
+// Regex cache for better performance
+const regexCache = new Map();
+
+function getRegex(pattern) {
+  if (!regexCache.has(pattern)) {
+    try {
+      regexCache.set(pattern, new RegExp(pattern));
+    } catch (error) {
+      console.error("Invalid regex pattern:", pattern, error);
+      return null;
+    }
+  }
+  return regexCache.get(pattern);
+}
+
 const operatorFunctions = {
   eq: (a, b, field) => {
     if (field === "clientIP") {
@@ -236,12 +251,9 @@ const operatorFunctions = {
   starts_with: (a, b) => String(a).startsWith(b),
   ends_with: (a, b) => String(a).endsWith(b),
   matches: (a, b) => {
-    try {
-      return new RegExp(b).test(String(a));
-    } catch (error) {
-      console.error("Invalid regex:", b, error);
-      return false;
-    }
+    const regex = getRegex(b);
+    if (!regex) return false;
+    return regex.test(String(a));
   },
 };
 
@@ -256,6 +268,10 @@ export async function evaluateConditions(request, conditions, logic = "and") {
     return false;
   }
 
+  // Initialize field cache if needed
+  request._fieldCache = request._fieldCache || {};
+  request._bodyCache = request._bodyCache || null;
+  
   let result = logic === "and";
   for (let i = 0; i < conditions.length; i++) {
     const condition = conditions[i];
@@ -263,6 +279,16 @@ export async function evaluateConditions(request, conditions, logic = "and") {
       console.log(`Switching logic to: ${condition.logic}`);
       logic = condition.logic;
       continue;
+    }
+
+    // Skip early with short-circuit evaluation
+    if (logic === "and" && !result) {
+      console.log(`AND short-circuit, result already false`);
+      break;
+    }
+    if (logic === "or" && result) {
+      console.log(`OR short-circuit, result already true`);
+      break;
     }
 
     let conditionResult;
@@ -280,11 +306,9 @@ export async function evaluateConditions(request, conditions, logic = "and") {
     if (logic === "and") {
       result = result && conditionResult;
       console.log(`AND result so far: ${result}`);
-      if (!result) break; // Short-circuit for AND
     } else {
       result = result || conditionResult;
       console.log(`OR result so far: ${result}`);
-      if (result) break; // Short-circuit for OR
     }
   }
 
@@ -298,21 +322,49 @@ async function evaluateCondition(request, condition) {
 
   console.log(`Evaluating condition: ${field} ${operator} ${value}`);
 
-  if (field.startsWith("url.")) {
-    const url = new URL(request.url);
-    fieldValue = getNestedValue(url, field.slice(4));
-  } else if (field.startsWith("headers.")) {
-    fieldValue = request.headers.get(field.slice(8));
-  } else if (field.startsWith("cf.")) {
-    fieldValue = getNestedValue(request.cf, field.slice(3));
-  } else if (field.startsWith("body.")) {
-    const bodyContent = await fieldFunctions.body(request);
-    fieldValue = getNestedValue(JSON.parse(bodyContent), field.slice(5));
-  } else if (fieldFunctions[field]) {
-    fieldValue = await fieldFunctions[field](request);
+  // Use cached field value if available
+  const cacheKey = `field:${field}`;
+  if (request._fieldCache[cacheKey] !== undefined) {
+    console.log(`Using cached value for field: ${field}`);
+    fieldValue = request._fieldCache[cacheKey];
   } else {
-    console.warn(`Invalid field: ${field}`);
-    return false;
+    // Extract field value and cache it
+    if (field.startsWith("url.")) {
+      const url = new URL(request.url);
+      fieldValue = getNestedValue(url, field.slice(4));
+    } else if (field.startsWith("headers.")) {
+      fieldValue = request.headers.get(field.slice(8));
+    } else if (field.startsWith("cf.")) {
+      fieldValue = getNestedValue(request.cf, field.slice(3));
+    } else if (field.startsWith("body.")) {
+      // Use cached body if available
+      let bodyContent;
+      if (request._bodyCache === null) {
+        bodyContent = await fieldFunctions.body(request);
+        request._bodyCache = bodyContent;
+      } else {
+        bodyContent = request._bodyCache;
+      }
+      fieldValue = getNestedValue(JSON.parse(bodyContent), field.slice(5));
+    } else if (fieldFunctions[field]) {
+      // Special case for body field
+      if (field === "body") {
+        if (request._bodyCache === null) {
+          fieldValue = await fieldFunctions.body(request);
+          request._bodyCache = fieldValue;
+        } else {
+          fieldValue = request._bodyCache;
+        }
+      } else {
+        fieldValue = await fieldFunctions[field](request);
+      }
+    } else {
+      console.warn(`Invalid field: ${field}`);
+      return false;
+    }
+    
+    // Cache the field value
+    request._fieldCache[cacheKey] = fieldValue;
   }
 
   if (!operatorFunctions[operator]) {

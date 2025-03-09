@@ -20,7 +20,7 @@ export default {
     }
 
     try {
-      const config = await getConfig(env);
+      const config = await getConfig(env, ctx);
 
       if (!config || config.length === 0) {
         console.log(
@@ -94,7 +94,7 @@ export default {
       try {
         if (message.body && message.body.type === "config_update") {
           console.log("Received config update notification");
-          await getConfig(env);
+          await getConfig(env, ctx);
           await message.ack();
         } else {
           console.log("Received unexpected message type:", message.body?.type);

@@ -1,0 +1,95 @@
+{
+  // Main configuration
+  "name": "rate-limiter-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-09-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "25f21f141824546aa72c74451a11b419",
+  "workers_dev": true,
+
+  // Observability settings
+  "observability": {
+    "enabled": true
+  },
+
+  // Placement configuration
+  "placement": {
+    "mode": "smart"
+  },
+
+  // Variables
+  "vars": {
+    "RATE_LIMIT_INFO_PATH": "/_ratelimit"
+  },
+
+  // Durable Objects bindings
+  "durable_objects": {
+    "bindings": [
+      { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+      { "name": "CONFIG_STORAGE", "class_name": "ConfigStorage", "script_name": "rate-limiter-config-storage" }
+    ]
+  },
+
+  // Migrations
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["RateLimiter"]
+    }
+  ],
+
+  // Environment configurations
+  "env": {
+    "prod": {
+      "name": "rate-limiter-worker-prod",
+      "route": { 
+        "pattern": "images.erfi.dev/Granna_1.JPG", 
+        "custom_domain": false, 
+        "zone_id": "d6260a9cd0c27db1e9c0a453b2e4761e" 
+      },
+      "vars": {
+        "RATE_LIMIT_INFO_PATH": "/_ratelimit"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+          { "name": "CONFIG_STORAGE", "class_name": "ConfigStorage", "script_name": "rate-limiter-config-storage" }
+        ]
+      }
+      // Uncomment to enable queue consumers
+      // "queues": {
+      //   "consumers": [
+      //     {
+      //       "queue": "config-update-queue",
+      //       "max_batch_size": 100,
+      //       "max_batch_timeout": 1,
+      //       "max_retries": 10
+      //     }
+      //   ]
+      // }
+    },
+    "staging": {
+      "name": "rate-limiter-worker-staging",
+      "workers_dev": true,
+      "vars": {
+        "RATE_LIMIT_INFO_PATH": "/_ratelimit"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+          { "name": "CONFIG_STORAGE", "class_name": "ConfigStorage", "script_name": "rate-limiter-config-storage" }
+        ]
+      },
+      "queues": {
+        "consumers": [
+          {
+            "queue": "config-update-queue",
+            "max_batch_size": 100,
+            "max_batch_timeout": 1,
+            "max_retries": 10
+          }
+        ]
+      }
+    }
+  }
+}

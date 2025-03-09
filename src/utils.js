@@ -66,3 +66,20 @@ export async function importKey(keyData) {
     ["encrypt", "decrypt"],
   );
 }
+
+export const logger = {
+  info: (message, data) => console.log(`[INFO] ${message}`, data || ''),
+  error: (message, error) => console.error(`[ERROR] ${message}`, error || ''),
+  warn: (message, data) => console.warn(`[WARN] ${message}`, data || ''),
+  debug: (message, data) => console.debug(`[DEBUG] ${message}`, data || '')
+};
+
+export async function trackPerformance(name, fn) {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    const duration = Date.now() - start;
+    logger.debug(`Performance: ${name}`, { duration: `${duration}ms` });
+  }
+}

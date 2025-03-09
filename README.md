@@ -25,44 +25,48 @@ The Rate Limiting Worker is a Cloudflare Worker designed to implement rate limit
 
 ## Project Structure
 
+The project now follows a modular architecture:
+
 ```
-do-rl-worker/
-├── src/
-│   ├── config-storage.js
-│   ├── condition-evaluator.js
-│   ├── fingerprint.js
-│   ├── index.js
-│   ├── rate-limiter.js
-│   ├── rate-limit-handler.js
-│   ├── staticpages.ts
-│   └── utils.js
-├── package.json
-└── wrangler.toml
+src/
+├── constants/           # Application constants and configuration
+├── core/                # Core application logic
+├── services/            # Business logic services
+│   ├── action-handler-service.ts
+│   ├── condition-evaluator-service.ts
+│   ├── config-service.ts
+│   ├── fingerprint-service.ts
+│   └── rate-limiter-service.ts
+├── types/               # TypeScript types and interfaces
+├── utils/               # Utility functions
+│   ├── crypto.ts
+│   ├── request.ts
+│   └── index.ts
+└── index.ts             # Entry point
 ```
 
 ## Key Components
 
 ```mermaid
 graph TD
-    A[index.js] --> B[config-storage.js]
-    A --> C[condition-evaluator.js]
-    A --> D[fingerprint.js]
-    A --> E[rate-limiter.js]
-    A --> F[rate-limit-handler.js]
-    A --> G[staticpages.ts]
-    A --> H[utils.js]
-    B --> I[ConfigStorage Durable Object]
-    E --> J[RateLimiter Durable Object]
+    A[index.ts] --> B[core/worker.ts]
+    B --> C[services/config-service.ts]
+    B --> D[services/condition-evaluator-service.ts]
+    B --> E[services/fingerprint-service.ts]
+    B --> F[services/rate-limiter-service.ts]
+    B --> G[services/action-handler-service.ts]
+    C --> I[ConfigStorage Durable Object]
+    F --> J[RateLimiter Durable Object]
 ```
 
-1. **index.js**: The main entry point for the worker. It handles incoming requests, fetches the configuration, finds matching rules, and applies rate limiting.
-2. **config-storage.js**: Manages fetching and caching of rate limiting rules from the Config Storage Worker.
-3. **condition-evaluator.js**: Provides functions for evaluating conditions defined in the rate limiting rules.
-4. **fingerprint.js**: Handles the generation of unique identifiers for requests based on configured parameters.
-5. **rate-limiter.js**: Contains the `RateLimiter` class, which implements the core rate limiting logic.
-6. **rate-limit-handler.js**: Handles rate limit checking and response modification.
-7. **staticpages.ts**: Serves static HTML pages for rate limit notifications and information.
-8. **utils.js**: Contains utility functions for cryptographic operations.
+1. **index.ts**: The main entry point for the worker, exports the RateLimiter Durable Object class.
+2. **core/worker.ts**: Contains the core worker functionality, handling requests and dispatching to appropriate services.
+3. **services/config-service.ts**: Manages fetching and caching of rate limiting rules with performance optimizations.
+4. **services/condition-evaluator-service.ts**: Provides functions for evaluating conditions with field caching and optimized regex handling.
+5. **services/fingerprint-service.ts**: Handles the generation of unique identifiers for requests based on configured parameters.
+6. **services/rate-limiter-service.ts**: Implements the core rate limiting logic and Durable Object functionality.
+7. **services/action-handler-service.ts**: Handles different actions when rate limits are exceeded.
+8. **utils/**: Contains utility functions for cryptography, request handling, logging, and performance tracking.
 
 ## System Architecture
 
@@ -128,6 +132,14 @@ The worker uses two types of Durable Objects:
 
 ## Development
 
+### Prerequisites
+
+- Node.js (v16+)
+- npm or yarn
+- Wrangler CLI
+
+### Installation
+
 1. Clone the repository:
    ```
    git clone https://github.com/erfianugrah/rate-limiter-worker.git
@@ -139,12 +151,28 @@ The worker uses two types of Durable Objects:
    npm install
    ```
 
-3. Run the development server:
-   ```
-   npm run dev
-   ```
+### Local Development
+
+Run the development server:
+```
+npm run dev
+```
 
 This command starts a local development server that simulates the Cloudflare Workers environment.
+
+### Linting and Type Checking
+
+```bash
+npm run lint        # Check for code style issues
+npm run lint:fix    # Fix code style issues
+npm run typecheck   # Verify TypeScript types
+```
+
+### Building for Production
+
+```bash
+npm run build
+```
 
 ## Deployment
 
@@ -155,6 +183,8 @@ To deploy the worker:
    ```
    npm run deploy
    ```
+
+This will first build the TypeScript files and then deploy the worker to Cloudflare.
 
 ## Testing
 
@@ -184,11 +214,22 @@ The worker includes extensive logging throughout its execution. In production, t
 
 ## Future Improvements
 
-- Implement more sophisticated caching mechanisms for configuration and rate limit data.
-- Add support for more complex rate limiting scenarios, such as tiered limits or dynamic limits based on user behavior.
-- Enhance the fingerprinting capabilities to support more complex client identification schemes.
-- Implement better error handling and fallback mechanisms.
-- Add more comprehensive logging and monitoring capabilities.
+The codebase has been refactored with the following improvements:
+
+- ✅ Improved modular architecture with proper separation of concerns
+- ✅ TypeScript support with comprehensive type definitions
+- ✅ Enhanced caching mechanisms for configuration and rate limit data
+- ✅ Optimized condition evaluation with field and regex caching
+- ✅ Structured logging for better debugging and monitoring
+- ✅ Improved error handling and fallback mechanisms
+
+Additional improvements planned for the future:
+
+- Add more comprehensive test coverage with unit tests for all services
+- Create a proper UI component library for rate limit pages
+- Implement additional fingerprinting methods for more accurate client identification
+- Add telemetry and metrics for monitoring rate limit behavior in production
+- Support for more complex rate limiting scenarios like tiered limits or dynamic limits
 
 ## Related Components
 
