@@ -6,6 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "account_id": "25f21f141824546aa72c74451a11b419",
   "workers_dev": true,
+  
+  // Static assets configuration
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS"
+  },
 
   // Observability settings
   "observability": {
@@ -55,6 +61,10 @@
           { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
           { "name": "CONFIG_STORAGE", "class_name": "ConfigStorage", "script_name": "rate-limiter-config-storage" }
         ]
+      },
+      "assets": {
+        "directory": "public",
+        "binding": "ASSETS"
       }
       // Uncomment to enable queue consumers
       // "queues": {
@@ -79,6 +89,10 @@
           { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
           { "name": "CONFIG_STORAGE", "class_name": "ConfigStorage", "script_name": "rate-limiter-config-storage" }
         ]
+      },
+      "assets": {
+        "directory": "public",
+        "binding": "ASSETS"
       },
       "queues": {
         "consumers": [

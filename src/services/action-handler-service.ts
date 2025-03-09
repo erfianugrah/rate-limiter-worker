@@ -1,6 +1,7 @@
 import { Action, Env, RateLimitInfo, Rule } from '../types/index.ts';
 import { ACTION_TYPES, HTTP_STATUS, RATE_LIMIT } from '../constants/index.ts';
 import { logger } from '../utils/index.ts';
+import { StaticAssetsService } from './static-assets-service.ts';
 
 /**
  * Handles various actions to be taken when rate limits are applied
@@ -189,18 +190,8 @@ export class ActionHandlerService {
     
     // Default rate limit behavior
     if (request.headers.get('Accept')?.includes('text/html')) {
-      // Return HTML rate limit page
-      // For this refactor, we'll need to implement the UI components separately
-      return new Response(
-        `<html><body><h1>Rate Limit Exceeded</h1><p>Please try again in ${rateLimitInfo.retryAfter} seconds.</p></body></html>`,
-        {
-          status: HTTP_STATUS.TOO_MANY_REQUESTS,
-          headers: {
-            'Content-Type': 'text/html',
-            'Retry-After': rateLimitInfo.retryAfter?.toString() || '60',
-          },
-        }
-      );
+      // Return HTML rate limit page from static assets
+      return StaticAssetsService.getInstance().serveRateLimitPage(_env, request, rateLimitInfo);
     } else {
       // Return JSON rate limit response
       return new Response(

@@ -108,8 +108,35 @@ export class RateLimiterService {
       let timestamps: number[] = data ? JSON.parse(data) : [];
       
       // Filter timestamps to only include those within the current window
+      // Performance optimization: sort once and use binary search if large dataset
       const windowStart = now - windowSize;
-      timestamps = timestamps.filter((ts) => ts >= windowStart);
+      
+      if (timestamps.length > 100) {
+        // For large datasets, binary search is more efficient
+        // First sort in case timestamps were added out of order
+        timestamps.sort((a, b) => a - b);
+        
+        // Find the index of the first timestamp in the current window using binary search
+        let start = 0;
+        let end = timestamps.length - 1;
+        let windowStartIndex = timestamps.length;
+        
+        while (start <= end) {
+          const mid = Math.floor((start + end) / 2);
+          if (timestamps[mid] >= windowStart) {
+            windowStartIndex = mid;
+            end = mid - 1;
+          } else {
+            start = mid + 1;
+          }
+        }
+        
+        // Slice the array to include only timestamps in the window
+        timestamps = timestamps.slice(windowStartIndex);
+      } else {
+        // For small datasets, filter is fine
+        timestamps = timestamps.filter((ts) => ts >= windowStart);
+      }
 
       // Check if client has exceeded the rate limit
       const isAllowed = timestamps.length < limit;
@@ -117,17 +144,35 @@ export class RateLimiterService {
       // Add current timestamp if allowed
       if (isAllowed) {
         timestamps.push(now);
+        // Keep sorted if we used the optimized approach
+        if (timestamps.length > 100) {
+          timestamps.sort((a, b) => a - b);
+        }
       }
 
-      // Only keep the most recent timestamps up to limit
-      timestamps = timestamps.slice(-limit);
+      // Only keep the most recent timestamps up to the limit + window buffer
+      // This prevents the array from growing indefinitely
+      const maxToKeep = limit * 2;
+      if (timestamps.length > maxToKeep) {
+        timestamps = timestamps.slice(-maxToKeep);
+      }
 
       // Store updated timestamps
       await storage.put(clientIdentifier, JSON.stringify(timestamps));
 
-      // Calculate reset time
-      const oldestTimestamp = timestamps[0] || now;
-      const resetTime = Math.max(oldestTimestamp + windowSize, now + 1000);
+      // Calculate reset time more accurately
+      // If we have at least 'limit' timestamps, the reset time is when the oldest one expires
+      let resetTime;
+      if (timestamps.length >= limit) {
+        // Sort to ensure we get the correct oldest timestamp in the window
+        timestamps.sort((a, b) => a - b);
+        // The reset occurs when the (limit)th oldest timestamp expires
+        const oldestRelevantTimestamp = timestamps[timestamps.length - limit];
+        resetTime = oldestRelevantTimestamp + windowSize;
+      } else {
+        // If we don't have enough timestamps, reset time is in the future
+        resetTime = now + 1000;
+      }
 
       return {
         isAllowed,
@@ -230,19 +275,21 @@ class RateLimiterDurableObject {
         const now = Date.now();
 
         // Get client identifier based on fingerprint configuration
-        const clientIdentifier = await this.fingerprintService.getClientIdentifier(
+        let clientIdentifier = await this.fingerprintService.getClientIdentifier(
           request, 
           rule.name,
           rule.fingerprint, 
           cf
         );
         
+        // Sanitize client identifier for safe storage
+        clientIdentifier = this.sanitizeStorageKey(clientIdentifier);
+        
         logger.debug(`Processing request for client identifier: ${clientIdentifier}`);
 
-        // Check if request matches the rule conditions
-        // For this refactor, we'll assume the request has already been matched
-        // This would be handled by the condition evaluator before reaching here
-        const isInitialMatch = true;
+        // The request has already been matched by the condition evaluator in worker.ts
+        // But we'll verify this request is valid for this rule by looking at headers
+        const isInitialMatch = request.headers.has(RATE_LIMIT.HEADERS.CONFIG);
 
         if (isInitialMatch) {
           logger.debug('Initial match conditions met, applying rate limit');
@@ -336,12 +383,15 @@ class RateLimiterDurableObject {
       const cf = payload?.cf || {};
       const now = Date.now();
       
-      const clientIdentifier = await this.fingerprintService.getClientIdentifier(
+      let clientIdentifier = await this.fingerprintService.getClientIdentifier(
         request, 
         rule.name,
         rule.fingerprint, 
         cf
       );
+      
+      // Sanitize client identifier for safe storage
+      clientIdentifier = this.sanitizeStorageKey(clientIdentifier);
 
       const { remaining, resetTime } = await this.rateLimiterService.checkRateLimit(
         clientIdentifier,
@@ -381,5 +431,26 @@ class RateLimiterDurableObject {
       status,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+  
+  /**
+   * Sanitize a storage key to ensure it's safe to use
+   * @param key - The raw storage key
+   * @returns Sanitized storage key
+   */
+  private sanitizeStorageKey(key: string): string {
+    if (!key) {
+      return 'unknown_client';
+    }
+    
+    // Limit key length to avoid excessive storage costs
+    const maxKeyLength = 512;
+    if (key.length > maxKeyLength) {
+      key = key.substring(0, maxKeyLength);
+    }
+    
+    // Remove invalid characters that might cause issues in storage
+    // Allow alphanumeric, colon, hyphen, underscore, and period
+    return key.replace(/[^\w\-\.:]/g, '_');
   }
 }

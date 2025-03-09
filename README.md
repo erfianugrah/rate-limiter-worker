@@ -36,13 +36,19 @@ src/
 │   ├── condition-evaluator-service.ts
 │   ├── config-service.ts
 │   ├── fingerprint-service.ts
-│   └── rate-limiter-service.ts
+│   ├── rate-limiter-service.ts
+│   └── static-assets-service.ts
 ├── types/               # TypeScript types and interfaces
 ├── utils/               # Utility functions
 │   ├── crypto.ts
 │   ├── request.ts
 │   └── index.ts
 └── index.ts             # Entry point
+
+public/                  # Static assets (served by Cloudflare's asset platform)
+└── pages/               # Rate limit page templates
+    ├── rate-limit.html
+    └── rate-limit-info.html
 ```
 
 ## Key Components
@@ -66,7 +72,9 @@ graph TD
 5. **services/fingerprint-service.ts**: Handles the generation of unique identifiers for requests based on configured parameters.
 6. **services/rate-limiter-service.ts**: Implements the core rate limiting logic and Durable Object functionality.
 7. **services/action-handler-service.ts**: Handles different actions when rate limits are exceeded.
-8. **utils/**: Contains utility functions for cryptography, request handling, logging, and performance tracking.
+8. **services/static-assets-service.ts**: Manages the serving of static HTML pages for rate limit responses.
+9. **utils/**: Contains utility functions for cryptography, request handling, logging, and performance tracking.
+10. **public/pages/**: Contains static HTML pages for rate limit and rate limit info responses, which are served with Cloudflare's assets platform.
 
 ## System Architecture
 
@@ -166,12 +174,28 @@ This command starts a local development server that simulates the Cloudflare Wor
 npm run lint        # Check for code style issues
 npm run lint:fix    # Fix code style issues
 npm run typecheck   # Verify TypeScript types
+npm run validate    # Run typecheck, lint, and tests in one command
 ```
 
-### Building for Production
+### Testing
 
 ```bash
+npm run test        # Run tests in watch mode
+npm run test:run    # Run tests once without watch mode
+```
+
+### Building and Deployment
+
+```bash
+# Build TypeScript files
 npm run build
+
+# Full validation and deployment
+npm run publish
+
+# Environment-specific deployments
+npm run publish:staging   # Deploy to staging environment
+npm run publish:prod      # Deploy to production environment
 ```
 
 ## Deployment
@@ -179,14 +203,48 @@ npm run build
 To deploy the worker:
 
 1. Ensure you have the Wrangler CLI installed and authenticated with your Cloudflare account.
-2. Run the following command in the project directory:
-   ```
-   npm run deploy
+2. Choose the appropriate deployment command:
+
+   ```bash
+   # Deploy to default environment after running tests
+   npm run publish
+   
+   # Deploy to staging environment
+   npm run publish:staging
+   
+   # Deploy to production environment
+   npm run publish:prod
    ```
 
-This will first build the TypeScript files and then deploy the worker to Cloudflare.
+Each command will build the TypeScript files and deploy the worker to the appropriate Cloudflare environment. The `publish` command also runs tests to ensure everything is working correctly before deployment.
 
 ## Testing
+
+### Unit Tests
+
+The project uses Vitest for unit testing. Run the tests with:
+
+```bash
+npm test
+```
+
+Test files are organized to match the structure of the source code:
+
+```
+test/
+├── core/                # Tests for core worker functionality
+├── services/            # Tests for business logic services
+│   ├── action-handler-service.test.ts
+│   ├── condition-evaluator-service.test.ts
+│   ├── config-service.test.ts
+│   ├── fingerprint-service.test.ts
+│   └── rate-limiter-service.test.ts
+└── utils/               # Tests for utility functions
+    ├── crypto.test.ts
+    └── request.test.ts
+```
+
+### Integration Testing
 
 To test the rate limiting functionality, you can use the provided `rate-limit-tester.py` script. This script allows you to simulate multiple requests and analyze the rate limiting behavior.
 
@@ -196,6 +254,14 @@ python rate-limit-tester.py -u <URL> -n <NUMBER_OF_REQUESTS> -d <DELAY_BETWEEN_R
 ```
 
 The script provides detailed output, including response times, status codes, and rate limit headers. It also generates a graph of the results, saved as `rate_limit_test_results.png`.
+
+You can also use the bash-based test script for quick testing:
+
+```bash
+./rl-test.sh <URL>
+```
+
+This script will send a series of requests to the specified URL and display the rate limit headers.
 
 ## Error Handling and Logging
 
@@ -212,6 +278,18 @@ The worker includes extensive logging throughout its execution. In production, t
 - The current implementation has a hard-coded body size limit for fingerprinting and condition evaluation.
 - The configuration is cached to reduce Durable Object reads. This means that rule changes may take some time to propagate.
 
+## Performance Optimizations
+
+The codebase includes several performance optimizations:
+
+1. **Config Caching**: Implements a TTL-based cache with background refresh for configuration data
+2. **Field Value Caching**: Caches field values to avoid redundant extractions in condition evaluation
+3. **Body Caching**: Prevents duplicate parsing of request bodies 
+4. **Regex Pattern Caching**: Reuses compiled regex patterns for recurring evaluations
+5. **Memory Optimizations**: Careful memory management to avoid excessive allocations
+
+For detailed information on performance improvements, see [PERFORMANCE-IMPROVEMENTS.md](./PERFORMANCE-IMPROVEMENTS.md).
+
 ## Future Improvements
 
 The codebase has been refactored with the following improvements:
@@ -226,7 +304,7 @@ The codebase has been refactored with the following improvements:
 Additional improvements planned for the future:
 
 - Add more comprehensive test coverage with unit tests for all services
-- Create a proper UI component library for rate limit pages
+- ✅ Create a proper UI component library for rate limit pages
 - Implement additional fingerprinting methods for more accurate client identification
 - Add telemetry and metrics for monitoring rate limit behavior in production
 - Support for more complex rate limiting scenarios like tiered limits or dynamic limits

@@ -83,6 +83,10 @@ export interface Env {
   CONFIG_STORAGE: DurableObjectNamespace;
   RATE_LIMIT_INFO_PATH: string;
   ENVIRONMENT: string;
+  // Cloudflare Assets binding
+  ASSETS: {
+    fetch: (request: Request) => Promise<Response>;
+  };
 }
 
 // Durable Object Storage interface

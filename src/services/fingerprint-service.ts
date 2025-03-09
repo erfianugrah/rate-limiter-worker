@@ -43,8 +43,20 @@ export class FingerprintService {
     fingerprintConfig?: FingerprintConfig, 
     cfData?: any
   ): Promise<string> {
+    // If no fingerprint config is provided, use IP address as fallback
     if (!fingerprintConfig?.parameters || fingerprintConfig.parameters.length === 0) {
-      logger.debug(`No fingerprint configured for rule: ${ruleName}`);
+      logger.debug(`No fingerprint configured for rule: ${ruleName}, using IP fallback`);
+      try {
+        // Get client IP as fallback identifier
+        const clientIP = await this.getClientIPFallback(request, cfData);
+        if (clientIP) {
+          return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:ip:${clientIP}`;
+        }
+      } catch (error) {
+        logger.warn(`Failed to get IP fallback for rule ${ruleName}`, error);
+      }
+      
+      // If IP fallback fails, use default (but this is less precise)
       return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:default`;
     }
 
@@ -59,8 +71,50 @@ export class FingerprintService {
       return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:fingerprint:${fingerprint}`;
     } catch (error) {
       logger.error(`Error generating fingerprint for rule ${ruleName}`, error);
-      throw new Error(`Failed to generate fingerprint for rule ${ruleName}`);
+      
+      // On error, try IP fallback instead of throwing
+      try {
+        const clientIP = await this.getClientIPFallback(request, cfData);
+        if (clientIP) {
+          logger.info(`Using IP fallback for rule ${ruleName} after fingerprint error`);
+          return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:ip:${clientIP}`;
+        }
+      } catch (ipError) {
+        logger.warn(`IP fallback also failed for rule ${ruleName}`, ipError);
+      }
+      
+      // If both fingerprint and IP fallback fail, use default with warning
+      logger.warn(`Using default identifier for rule ${ruleName} after all fallbacks failed`);
+      return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:default`;
     }
+  }
+  
+  /**
+   * Get client IP address as fallback identifier
+   * @param request - The HTTP request
+   * @param cfData - Cloudflare specific data
+   * @returns Client IP address or null
+   */
+  private async getClientIPFallback(request: Request, cfData?: any): Promise<string | null> {
+    // Try to get IP from Cloudflare data
+    if (cfData?.clientIP) {
+      return cfData.clientIP;
+    }
+    
+    // Try to get IP from headers
+    const forwardedFor = request.headers.get('CF-Connecting-IP') || 
+                         request.headers.get('X-Forwarded-For') ||
+                         request.headers.get('X-Real-IP');
+                         
+    if (forwardedFor) {
+      // Use the first IP in case of comma-separated list
+      const clientIP = forwardedFor.split(',')[0].trim();
+      if (clientIP) {
+        return clientIP;
+      }
+    }
+    
+    return null;
   }
 
   /**

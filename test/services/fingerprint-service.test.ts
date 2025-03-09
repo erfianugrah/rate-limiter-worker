@@ -139,8 +139,11 @@ describe('FingerprintService', () => {
     expect(identifier).toBe(`${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:fingerprint:mocked-hash-value`);
   });
 
-  it('should handle errors during fingerprint generation', async () => {
+  it('should use fallback when error occurs during fingerprint generation', async () => {
     vi.spyOn(utils, 'hashValue').mockRejectedValue(new Error('Hash error'));
+    
+    // Mock the getClientIPFallback method to return null to test the default case
+    vi.spyOn(utils, 'getClientIP').mockReturnValue(null);
     
     const ruleName = 'test-rule';
     const fingerprintConfig = {
@@ -149,11 +152,14 @@ describe('FingerprintService', () => {
       ]
     };
     
-    await expect(fingerprintService.getClientIdentifier(
+    const identifier = await fingerprintService.getClientIdentifier(
       mockRequest,
       ruleName,
       fingerprintConfig,
       mockCfData
-    )).rejects.toThrow('Failed to generate fingerprint for rule test-rule');
+    );
+    
+    // Should fall back to default since IP lookup also fails
+    expect(identifier).toBe(`${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:default`);
   });
 });

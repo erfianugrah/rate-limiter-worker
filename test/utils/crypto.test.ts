@@ -4,7 +4,7 @@ import * as crypto from '../../src/utils/crypto';
 describe('Crypto Utils', () => {
   beforeEach(() => {
     // Mock crypto.subtle methods
-    global.crypto = {
+    const mockCrypto = {
       subtle: {
         digest: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3, 4]).buffer),
         generateKey: vi.fn().mockResolvedValue({ type: 'secret', algorithm: { name: 'AES-GCM' } }),
@@ -20,11 +20,18 @@ describe('Crypto Utils', () => {
         return arr;
       })
     } as any;
+    
+    // Use Object.defineProperty to avoid "Cannot set property crypto which has only a getter" error
+    Object.defineProperty(global, 'crypto', {
+      value: mockCrypto,
+      writable: true,
+      configurable: true
+    });
   });
 
   it('should hash values correctly', async () => {
     const hash = await crypto.hashValue('test');
-    expect(hash).toBe('010203040000000000000000000000000000000000000000000000000000000000000000');
+    expect(hash).toBe('01020304');
     expect(global.crypto.subtle.digest).toHaveBeenCalledWith('SHA-256', expect.any(Uint8Array));
   });
 

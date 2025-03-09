@@ -10,11 +10,14 @@
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "test": "vitest",
+    "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.js",
     "lint:fix": "eslint src --ext .ts,.js --fix",
-    "manual-test": "node test/manual-test.js",
-    "benchmark": "node test/benchmark.js"
+    "publish:staging": "npm run build && wrangler deploy --env staging",
+    "publish:prod": "npm run build && wrangler deploy --env prod",
+    "publish": "npm run build && npm run test:run && wrangler deploy",
+    "validate": "npm run typecheck && npm run lint && npm run test:run"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.4.5",
