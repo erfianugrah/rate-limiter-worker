@@ -163,12 +163,12 @@ export class ActionHandlerService {
    * @param action - Action configuration
    * @returns Rate limit response
    */
-  private handleRateLimitAction(
+  private async handleRateLimitAction(
     _env: Env,
     request: Request,
     rateLimitInfo: RateLimitInfo,
     action: Action
-  ): Response {
+  ): Promise<Response> {
     logger.info('Applying rate limit action');
     
     // Use custom response if defined in the action
@@ -191,7 +191,7 @@ export class ActionHandlerService {
     // Default rate limit behavior
     if (request.headers.get('Accept')?.includes('text/html')) {
       // Return HTML rate limit page from static assets
-      return StaticAssetsService.getInstance().serveRateLimitPage(_env, request, rateLimitInfo);
+      return await StaticAssetsService.getInstance().serveRateLimitPage(_env, request, rateLimitInfo);
     } else {
       // Return JSON rate limit response
       return new Response(
