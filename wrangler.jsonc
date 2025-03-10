@@ -110,17 +110,17 @@
 			"assets": {
 				"directory": "public",
 				"binding": "ASSETS"
+			},
+			"queues": {
+				"consumers": [
+					{
+						"queue": "config-update-queue-staging",
+						"max_batch_size": 100,
+						"max_batch_timeout": 1,
+						"max_retries": 10
+					}
+				]
 			}
-			// "queues": {
-			// 	"consumers": [
-			// 		{
-			// 			"queue": "config-update-queue",
-			// 			"max_batch_size": 100,
-			// 			"max_batch_timeout": 1,
-			// 			"max_retries": 10
-			// 		}
-			// 	]
-			// }
 		}
 	}
 }
