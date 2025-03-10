@@ -327,6 +327,7 @@ export class ConditionEvaluatorService {
    * Operator functions for various condition operators
    */
   private operatorFunctions: Record<string, (a: any, b: any, field?: string) => boolean | Promise<boolean>> = {
+    // Short form operators
     'eq': (a: any, b: any, field?: string) => {
       if (field === "clientIP") {
         return b.includes("/") ? isIPInCIDR(a, b) : a === b;
@@ -346,6 +347,40 @@ export class ConditionEvaluatorService {
       const regex = this.getRegex(b);
       if (!regex) return false;
       return regex.test(String(a));
+    },
+    'exists': (a: any, _b: any) => a !== undefined && a !== null,
+    'not_exists': (a: any, _b: any) => a === undefined || a === null,
+    
+    // Long form operators (from config storage)
+    'equals': function(a: any, b: any, field?: string) {
+      return this['eq'](a, b, field);
+    },
+    'notEquals': function(a: any, b: any) {
+      return this['ne'](a, b);
+    },
+    'greaterThan': function(a: any, b: any) {
+      return this['gt'](a, b);
+    },
+    'greaterThanEqual': function(a: any, b: any) {
+      return this['ge'](a, b);
+    },
+    'lessThan': function(a: any, b: any) {
+      return this['lt'](a, b);
+    },
+    'lessThanEqual': function(a: any, b: any) {
+      return this['le'](a, b);
+    },
+    'notContains': function(a: any, b: any) {
+      return this['not_contains'](a, b);
+    },
+    'startsWith': function(a: any, b: any) {
+      return this['starts_with'](a, b);
+    },
+    'endsWith': function(a: any, b: any) {
+      return this['ends_with'](a, b);
+    },
+    'notExists': function(a: any, b: any) {
+      return this['not_exists'](a, b);
     }
   };
 }

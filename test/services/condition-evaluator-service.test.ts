@@ -106,7 +106,7 @@ describe('ConditionEvaluatorService', () => {
     expect(instance1).toBe(instance2);
   });
 
-  it('should evaluate simple conditions correctly', async () => {
+  it('should evaluate simple conditions correctly with short form operators', async () => {
     const conditions = [
       { field: 'method', operator: 'eq', value: 'GET' }
     ];
@@ -115,7 +115,16 @@ describe('ConditionEvaluatorService', () => {
     expect(result).toBe(true);
   });
 
-  it('should evaluate negative conditions correctly', async () => {
+  it('should evaluate simple conditions correctly with long form operators', async () => {
+    const conditions = [
+      { field: 'method', operator: 'equals', value: 'GET' }
+    ];
+    
+    const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions);
+    expect(result).toBe(true);
+  });
+
+  it('should evaluate negative conditions correctly with short form operators', async () => {
     const conditions = [
       { field: 'method', operator: 'eq', value: 'POST' }
     ];
@@ -123,8 +132,17 @@ describe('ConditionEvaluatorService', () => {
     const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions);
     expect(result).toBe(false);
   });
+  
+  it('should evaluate negative conditions correctly with long form operators', async () => {
+    const conditions = [
+      { field: 'method', operator: 'equals', value: 'POST' }
+    ];
+    
+    const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions);
+    expect(result).toBe(false);
+  });
 
-  it('should evaluate multiple conditions with AND logic', async () => {
+  it('should evaluate multiple conditions with AND logic using short form operators', async () => {
     const conditions = [
       { field: 'method', operator: 'eq', value: 'GET' },
       { field: 'headers.content-type', operator: 'eq', value: 'application/json' }
@@ -134,7 +152,17 @@ describe('ConditionEvaluatorService', () => {
     expect(result).toBe(true);
   });
 
-  it('should evaluate multiple conditions with OR logic', async () => {
+  it('should evaluate multiple conditions with AND logic using long form operators', async () => {
+    const conditions = [
+      { field: 'method', operator: 'equals', value: 'GET' },
+      { field: 'headers.content-type', operator: 'equals', value: 'application/json' }
+    ];
+    
+    const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions, 'and');
+    expect(result).toBe(true);
+  });
+
+  it('should evaluate multiple conditions with OR logic using short form operators', async () => {
     const conditions = [
       { field: 'method', operator: 'eq', value: 'POST' }, // false
       { field: 'headers.content-type', operator: 'eq', value: 'application/json' } // true
@@ -144,7 +172,17 @@ describe('ConditionEvaluatorService', () => {
     expect(result).toBe(true);
   });
 
-  it('should handle nested condition groups', async () => {
+  it('should evaluate multiple conditions with OR logic using long form operators', async () => {
+    const conditions = [
+      { field: 'method', operator: 'equals', value: 'POST' }, // false
+      { field: 'headers.content-type', operator: 'equals', value: 'application/json' } // true
+    ];
+    
+    const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions, 'or');
+    expect(result).toBe(true);
+  });
+
+  it('should handle nested condition groups with short form operators', async () => {
     const conditions = [
       {
         conditions: [
@@ -156,6 +194,42 @@ describe('ConditionEvaluatorService', () => {
     
     const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions);
     expect(result).toBe(true);
+  });
+
+  it('should handle nested condition groups with long form operators', async () => {
+    const conditions = [
+      {
+        conditions: [
+          { field: 'method', operator: 'equals', value: 'GET' },
+          { field: 'headers.content-type', operator: 'equals', value: 'application/json' }
+        ]
+      }
+    ];
+    
+    const result = await conditionEvaluatorService.evaluateConditions(mockRequest, conditions);
+    expect(result).toBe(true);
+  });
+  
+  it('should handle exists and notExists operators', async () => {
+    // Modify mockRequest to have a cached field value for testing
+    mockRequest._fieldCache = {
+      'field:headers.content-type': 'application/json',
+      'field:headers.missing': undefined
+    };
+    
+    const conditionsExists = [
+      { field: 'headers.content-type', operator: 'exists', value: '' }
+    ];
+    
+    const conditionsNotExists = [
+      { field: 'headers.missing', operator: 'notExists', value: '' }
+    ];
+    
+    const resultExists = await conditionEvaluatorService.evaluateConditions(mockRequest, conditionsExists);
+    const resultNotExists = await conditionEvaluatorService.evaluateConditions(mockRequest, conditionsNotExists);
+    
+    expect(resultExists).toBe(true);
+    expect(resultNotExists).toBe(true);
   });
 
   it('should use field caching for repeated fields', async () => {
