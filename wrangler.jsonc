@@ -55,7 +55,7 @@
 			"route": {
 				"pattern": "httpbun.erfianugrah.com/*",
 				"custom_domain": false,
-				"zone_id": "d6260a9cd0c27db1e9c0a453b2e4761e"
+				"zone_id": "3f2c4daa43d5920f313654a873b31d06"
 			},
 			"vars": {
 				"RATE_LIMIT_INFO_PATH": "/_ratelimit"

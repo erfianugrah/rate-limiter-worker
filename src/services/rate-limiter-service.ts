@@ -97,8 +97,7 @@ export class RateLimiterService {
     clientIdentifier: string,
     rule: Rule,
     storage: CFDurableObjectStorage,
-    now: number,
-    action?: any
+    now: number
   ): Promise<RateLimitResult> {
     return await trackPerformance('checkRateLimit', async () => {
       const windowSize = rule.rateLimit.period * 1000;
@@ -304,8 +303,7 @@ class RateLimiterDurableObject {
             clientIdentifier,
             rule,
             this.state.storage as CFDurableObjectStorage,
-            now,
-            rule.initialMatch.action
+            now
           );
           
           // Create response with rate limit info
