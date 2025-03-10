@@ -97,10 +97,12 @@ export class RateLimiterService {
     clientIdentifier: string,
     rule: Rule,
     storage: CFDurableObjectStorage,
-    now: number
+    now: number,
+    action?: any
   ): Promise<RateLimitResult> {
     return await trackPerformance('checkRateLimit', async () => {
       const windowSize = rule.rateLimit.period * 1000;
+      // Always use the top-level rule.rateLimit.limit
       const limit = rule.rateLimit.limit;
 
       // Get existing timestamps for this client
@@ -202,9 +204,12 @@ export class RateLimiterService {
     clientIdentifier: string,
     action: any
   ): Response {
+    // Always use the top-level rule.rateLimit.limit
+    const limit = rule.rateLimit.limit;
+      
     const headers = new Headers({
       'Content-Type': 'application/json',
-      [RATE_LIMIT.HEADERS.LIMIT]: rule.rateLimit.limit.toString(),
+      [RATE_LIMIT.HEADERS.LIMIT]: limit.toString(),
       [RATE_LIMIT.HEADERS.REMAINING]: remaining.toString(),
       [RATE_LIMIT.HEADERS.RESET]: Math.floor(resetTime / 1000).toString(),
       [RATE_LIMIT.HEADERS.RESET_PRECISE]: (resetTime / 1000).toFixed(3),
@@ -214,7 +219,7 @@ export class RateLimiterService {
 
     const responseBody: RateLimitInfo = {
       allowed: isAllowed,
-      limit: rule.rateLimit.limit,
+      limit: limit,
       remaining,
       reset: Math.floor(resetTime / 1000),
       resetFormatted: new Date(resetTime).toUTCString(),
@@ -299,7 +304,8 @@ class RateLimiterDurableObject {
             clientIdentifier,
             rule,
             this.state.storage as CFDurableObjectStorage,
-            now
+            now,
+            rule.initialMatch.action
           );
           
           // Create response with rate limit info
