@@ -69,7 +69,7 @@
 					{
 						"name": "CONFIG_STORAGE",
 						"class_name": "ConfigStorage",
-						"script_name": "rate-limiter-config-storage"
+						"script_name": "rate-limiter-config-storage-production"
 					}
 				]
 			},
@@ -103,7 +103,7 @@
 					{
 						"name": "CONFIG_STORAGE",
 						"class_name": "ConfigStorage",
-						"script_name": "rate-limiter-config-storage"
+						"script_name": "rate-limiter-config-storage-staging"
 					}
 				]
 			},
