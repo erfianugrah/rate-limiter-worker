@@ -21,6 +21,15 @@ export class ConfigService {
     }
     return ConfigService.instance;
   }
+  
+  /**
+   * Invalidate the config cache to force a fresh fetch
+   */
+  public invalidateCache(): void {
+    logger.info('Invalidating config cache');
+    this.cachedConfig = null;
+    this.lastConfigFetch = 0;
+  }
 
   /**
    * Get configuration from cache or remote source

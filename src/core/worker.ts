@@ -165,7 +165,11 @@ export default {
       try {
         if (message.body && message.body.type === "config_update") {
           logger.info("Received config update notification");
+          // First invalidate the cache
+          configService.invalidateCache();
+          // Then fetch fresh config
           await configService.getConfig(env, ctx);
+          logger.info("Config refreshed from update notification");
           await message.ack();
         } else {
           logger.info("Received unexpected message type", {
