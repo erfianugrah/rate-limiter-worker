@@ -53,7 +53,7 @@
 		"prod": {
 			"name": "rate-limiter-worker-prod",
 			"route": {
-				"pattern": "images.erfi.dev/Granna_1.JPG",
+				"pattern": "httpbun.erfianugrah.com/*",
 				"custom_domain": false,
 				"zone_id": "d6260a9cd0c27db1e9c0a453b2e4761e"
 			},
