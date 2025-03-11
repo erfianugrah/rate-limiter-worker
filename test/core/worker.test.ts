@@ -193,5 +193,34 @@ describe('Worker', () => {
     expect(mockConfigService.invalidateCache).toHaveBeenCalled();
     expect(mockConfigService.getConfig).toHaveBeenCalled();
     expect(ackFn).toHaveBeenCalled();
+    
+    // Verify correct order of operations (invalidate first, then get)
+    const invalidateCall = mockConfigService.invalidateCache.mock.invocationCallOrder[0];
+    const getConfigCall = mockConfigService.getConfig.mock.invocationCallOrder[0];
+    expect(invalidateCall).toBeLessThan(getConfigCall);
+  });
+  
+  it('handles unexpected message types correctly', async () => {
+    // Setup
+    const ackFn = vi.fn();
+    const batch = {
+      messages: [
+        {
+          body: { type: 'unknown_type' },
+          ack: ackFn
+        }
+      ]
+    };
+    
+    // Mock environment
+    const mockEnv = { CONFIG_STORAGE: {} };
+    
+    // Execute
+    await worker.queue(batch as any, mockEnv as any, { waitUntil: vi.fn() } as any);
+    
+    // Verify
+    expect(mockConfigService.invalidateCache).not.toHaveBeenCalled();
+    expect(mockConfigService.getConfig).not.toHaveBeenCalled();
+    expect(ackFn).toHaveBeenCalled();
   });
 });

@@ -9,7 +9,6 @@ export class ConfigService {
   private static instance: ConfigService;
   private cachedConfig: Config | null = null;
   private lastConfigFetch = 0;
-  private isRefreshing = false;
 
   /**
    * Get the singleton instance of ConfigService
@@ -34,27 +33,17 @@ export class ConfigService {
   /**
    * Get configuration from cache or remote source
    * @param env - Environment variables
-   * @param ctx - Execution context for background refresh
    * @returns Configuration object with rules
    */
-  public async getConfig(env: Env, ctx?: ExecutionContext): Promise<Config | null> {
-    const now = Date.now();
-
-    // Return fresh cached config immediately
-    if (this.cachedConfig && now - this.lastConfigFetch < CONFIG.CACHE_TTL) {
-      logger.debug('Using fresh cached config');
+  public async getConfig(env: Env): Promise<Config | null> {
+    // Return cached config immediately if available
+    if (this.cachedConfig) {
+      logger.debug('Using cached config');
       return this.cachedConfig;
     }
 
-    // Stale-while-revalidate pattern - use stale cache while refreshing in background
-    if (this.cachedConfig && !this.isRefreshing && ctx) {
-      logger.debug('Using stale cache while refreshing in background');
-      ctx.waitUntil(this.refreshConfigAsync(env));
-      return this.cachedConfig;
-    }
-
-    // No valid cache, must wait for fetch
-    logger.debug('No valid cache, fetching config directly');
+    // No cache, must wait for fetch
+    logger.debug('No cache, fetching config directly');
     return await this.fetchAndUpdateConfig(env);
   }
 
@@ -102,23 +91,6 @@ export class ConfigService {
     });
   }
 
-  /**
-   * Refresh configuration in background
-   * @param env - Environment variables
-   */
-  private async refreshConfigAsync(env: Env): Promise<void> {
-    if (this.isRefreshing) return;
-    this.isRefreshing = true;
-
-    try {
-      logger.debug('Background refresh: Fetching new config...');
-      await this.fetchAndUpdateConfig(env);
-    } catch (error) {
-      logger.error('Error in background refresh', error);
-    } finally {
-      this.isRefreshing = false;
-    }
-  }
 
   /**
    * Validate rule structure

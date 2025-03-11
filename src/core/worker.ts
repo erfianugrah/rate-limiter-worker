@@ -61,7 +61,7 @@ export default {
 
       try {
         // Get configuration
-        const config = await configService.getConfig(env, ctx);
+        const config = await configService.getConfig(env);
 
         if (!config || config.rules.length === 0) {
           logger.info('No rate limiting rules configured, passing through request');
@@ -151,7 +151,7 @@ export default {
           // First invalidate the cache
           configService.invalidateCache();
           // Then fetch fresh config
-          await configService.getConfig(env, ctx);
+          await configService.getConfig(env);
           logger.info('Config refreshed from update notification');
           await message.ack();
         } else {

@@ -29,7 +29,6 @@ export const RATE_LIMIT = {
 
 // Config manager constants
 export const CONFIG = {
-  CACHE_TTL: 60 * 1000, // 1 minute TTL
   ENDPOINT: 'https://rate-limiter-configurator/config',
 };
 

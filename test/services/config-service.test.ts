@@ -122,17 +122,46 @@ describe('ConfigService', () => {
     });
   });
 
-  it('should refresh in background when cache is stale', async () => {
+  it('should invalidate the cache correctly', async () => {
     // First call to populate cache
     await configService.getConfig(mockEnv);
+    mockFetch.mockClear();
     
-    // Simulate cache expiration
-    (configService as any).lastConfigFetch = Date.now() - (CONFIG.CACHE_TTL + 1000);
+    // Second call should use cache
+    await configService.getConfig(mockEnv);
+    expect(mockFetch).not.toHaveBeenCalled();
     
-    // Second call with context should trigger background refresh
-    await configService.getConfig(mockEnv, mockCtx);
+    // Invalidate cache
+    configService.invalidateCache();
     
-    expect(mockCtx.waitUntil).toHaveBeenCalled();
+    // Next call should fetch again
+    await configService.getConfig(mockEnv);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+  
+  it('should handle fetch errors gracefully', async () => {
+    // Mock a fetch error
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    
+    // Attempt to get config
+    const config = await configService.getConfig(mockEnv);
+    
+    // Should return null on error
+    expect(config).toBeNull();
+  });
+  
+  it('should handle invalid config response format', async () => {
+    // Mock an invalid response (missing rules array)
+    mockFetch.mockResolvedValueOnce(new Response(
+      JSON.stringify({ notRules: [] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    ));
+    
+    // Attempt to get config
+    const config = await configService.getConfig(mockEnv);
+    
+    // Should return null for invalid config
+    expect(config).toBeNull();
   });
 
   it('should validate rule structure correctly', () => {
