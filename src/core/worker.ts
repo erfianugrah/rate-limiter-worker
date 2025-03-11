@@ -17,10 +17,9 @@ export default {
    * Handle incoming HTTP requests
    * @param request - The HTTP request
    * @param env - Environment variables
-   * @param ctx - Execution context
    * @returns Response
    */
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     return await trackPerformance('worker.fetch', async () => {
       logger.info('Received request for URL', { url: request.url });
       const url = new URL(request.url);
@@ -137,9 +136,8 @@ export default {
    * Handle messages from queue
    * @param batch - Batch of messages
    * @param env - Environment variables
-   * @param ctx - Execution context
    */
-  async queue(batch: any, env: Env, ctx: ExecutionContext): Promise<void> {
+  async queue(batch: any, env: Env): Promise<void> {
     logger.info(`Received ${batch.messages.length} messages from the queue`);
 
     const configService = ConfigService.getInstance();
