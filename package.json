@@ -14,8 +14,8 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src --ext .ts,.js",
 		"lint:fix": "eslint src --ext .ts,.js --fix",
-		"publish:staging": "npm run build && wrangler deploy --env staging",
-		"publish:prod": "npm run build && wrangler deploy --env prod",
+		"deploy:staging": "npm run build && wrangler deploy --env staging",
+		"deploy:prod": "npm run build && wrangler deploy --env prod",
 		"publish": "npm run build && npm run test:run && wrangler deploy",
 		"validate": "npm run typecheck && npm run lint && npm run test:run"
 	},

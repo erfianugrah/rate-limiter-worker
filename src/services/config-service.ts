@@ -1,6 +1,6 @@
 import { Config, Env, Rule } from '../types/index.ts';
 import { CONFIG } from '../constants/index.ts';
-import { logger, trackPerformance } from '../utils/index.ts';
+import { logger, trackPerformance, transformConfigForWorker } from '../utils/index.ts';
 
 /**
  * ConfigService handles fetching and caching configuration for rate limiting
@@ -78,16 +78,21 @@ export class ConfigService {
           );
         }
         
-        const config = await configResponse.json() as Config;
+        // Parse the raw config
+        const rawConfig = await configResponse.json();
         
-        logger.debug('Fetched config', config);
+        logger.debug('Fetched raw config', rawConfig);
         
-        if (!config || !Array.isArray(config.rules) || config.rules.length === 0) {
+        if (!rawConfig || !Array.isArray(rawConfig.rules) || rawConfig.rules.length === 0) {
           logger.warn('Config is empty or invalid');
           return null;
         }
         
-        this.cachedConfig = config;
+        // Transform the config from canonical format to worker format
+        const workerConfig = transformConfigForWorker(rawConfig);
+        logger.debug('Transformed config for worker', workerConfig);
+        
+        this.cachedConfig = workerConfig;
         this.lastConfigFetch = Date.now();
         
         logger.info(`New config fetched and cached at ${this.lastConfigFetch}`);
