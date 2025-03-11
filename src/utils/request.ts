@@ -8,9 +8,9 @@ import { REQUEST } from '../constants/index.ts';
  */
 export function getClientIP(request: Request, cfData: any): string {
   const ipSources = [
-    () => request.headers.get("true-client-ip"),
-    () => request.headers.get("cf-connecting-ip"),
-    () => request.headers.get("x-forwarded-for")?.split(",")[0].trim(),
+    () => request.headers.get('true-client-ip'),
+    () => request.headers.get('cf-connecting-ip'),
+    () => request.headers.get('x-forwarded-for')?.split(',')[0].trim(),
     () => cfData?.clientIp,
   ];
 
@@ -21,8 +21,8 @@ export function getClientIP(request: Request, cfData: any): string {
     }
   }
 
-  console.warn("Unable to determine client IP from request or CF data");
-  return "unknown";
+  console.warn('Unable to determine client IP from request or CF data');
+  return 'unknown';
 }
 
 /**
@@ -32,9 +32,9 @@ export function getClientIP(request: Request, cfData: any): string {
  */
 export function parseCookies(cookieHeader: string | null): Record<string, string> {
   if (!cookieHeader) return {};
-  
-  return cookieHeader.split(";").reduce((cookies: Record<string, string>, cookie: string) => {
-    const [name, value] = cookie.trim().split("=").map(decodeURIComponent);
+
+  return cookieHeader.split(';').reduce((cookies: Record<string, string>, cookie: string) => {
+    const [name, value] = cookie.trim().split('=').map(decodeURIComponent);
     if (name) cookies[name] = value || '';
     return cookies;
   }, {});
@@ -47,10 +47,7 @@ export function parseCookies(cookieHeader: string | null): Record<string, string
  * @returns The extracted value or undefined
  */
 export function getNestedValue(obj: any, path: string): any {
-  return path.split(".").reduce(
-    (current, part) => current && current[part],
-    obj
-  );
+  return path.split('.').reduce((current, part) => current && current[part], obj);
 }
 
 /**
@@ -61,17 +58,17 @@ export function getNestedValue(obj: any, path: string): any {
 export async function getRequestBody(request: Request): Promise<string> {
   try {
     const clonedRequest = request.clone();
-    
+
     // Handle lack of body
     if (!clonedRequest.body) {
-      return "";
+      return '';
     }
-    
+
     const reader = clonedRequest.body.getReader();
-    let body = "";
+    let body = '';
     let bytesRead = 0;
 
-    while (true) {
+    for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -82,17 +79,15 @@ export async function getRequestBody(request: Request): Promise<string> {
         body += chunk;
       } else {
         body += chunk.slice(0, REQUEST.BODY_SIZE_LIMIT - (bytesRead - value.length));
-        console.warn(
-          `Request body exceeded ${REQUEST.BODY_SIZE_LIMIT} bytes. Truncating.`
-        );
+        console.warn(`Request body exceeded ${REQUEST.BODY_SIZE_LIMIT} bytes. Truncating.`);
         break;
       }
     }
 
     return body;
   } catch (error) {
-    console.error("Error reading request body:", error);
-    return "";
+    console.error('Error reading request body:', error);
+    return '';
   }
 }
 
@@ -103,15 +98,12 @@ export async function getRequestBody(request: Request): Promise<string> {
  * @returns true if the IP is in the CIDR range
  */
 export function isIPInCIDR(ip: string, cidr: string): boolean {
-  const [range, bitsStr = "32"] = cidr.split("/");
+  const [range, bitsStr = '32'] = cidr.split('/');
   const bits = parseInt(bitsStr, 10);
   const mask = ~(2 ** (32 - bits) - 1);
-  
-  const ipInt =
-    ip.split(".").reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
-  const rangeInt =
-    range.split(".").reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>>
-    0;
-    
+
+  const ipInt = ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+  const rangeInt = range.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+
   return (ipInt & mask) === (rangeInt & mask);
 }

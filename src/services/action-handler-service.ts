@@ -1,7 +1,7 @@
-import { Action, Env, RateLimitInfo, Rule } from '../types/index.ts';
-import { ACTION_TYPES, HTTP_STATUS, RATE_LIMIT } from '../constants/index.ts';
-import { logger } from '../utils/index.ts';
 import { StaticAssetsService } from './static-assets-service.ts';
+import { ACTION_TYPES, HTTP_STATUS, RATE_LIMIT } from '../constants/index.ts';
+import { Action, Env, RateLimitInfo, Rule } from '../types/index.ts';
+import { logger } from '../utils/index.ts';
 
 /**
  * Handles various actions to be taken when rate limits are applied
@@ -32,6 +32,7 @@ export class ActionHandlerService {
     env: Env,
     request: Request,
     rateLimitInfo: RateLimitInfo,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _rule: Rule
   ): Promise<Response> {
     const action = rateLimitInfo.action;
@@ -42,28 +43,31 @@ export class ActionHandlerService {
     switch (actionType) {
       case ACTION_TYPES.LOG:
         return this.handleLogAction(request);
-        
+
       case ACTION_TYPES.SIMULATE:
         return this.handleSimulateAction(request);
-        
+
       case ACTION_TYPES.BLOCK:
         return this.handleBlockAction();
-        
+
       case ACTION_TYPES.CUSTOM_RESPONSE:
         return this.handleCustomResponseAction(action);
-        
+
       case ACTION_TYPES.RATE_LIMIT:
         return this.handleRateLimitAction(env, request, rateLimitInfo, action);
-        
+
       default:
         logger.warn(`Unknown action type: ${actionType}`);
-        return new Response(JSON.stringify({
-          error: 'Unknown action type',
-          action: actionType
-        }), {
-          status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            error: 'Unknown action type',
+            action: actionType,
+          }),
+          {
+            status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
     }
   }
 
@@ -73,12 +77,9 @@ export class ActionHandlerService {
    * @param rateLimitResponse - Response with rate limit info
    * @returns Response with rate limit headers added
    */
-  public applyRateLimitHeaders(
-    response: Response,
-    rateLimitResponse: Response
-  ): Response {
+  public applyRateLimitHeaders(response: Response, rateLimitResponse: Response): Response {
     const newHeaders = new Headers(response.headers);
-    
+
     [
       RATE_LIMIT.HEADERS.LIMIT,
       RATE_LIMIT.HEADERS.REMAINING,
@@ -127,8 +128,8 @@ export class ActionHandlerService {
    */
   private handleBlockAction(): Response {
     logger.info('Blocking request due to rate limit');
-    return new Response('Forbidden', { 
-      status: HTTP_STATUS.FORBIDDEN 
+    return new Response('Forbidden', {
+      status: HTTP_STATUS.FORBIDDEN,
     });
   }
 
@@ -139,14 +140,14 @@ export class ActionHandlerService {
    */
   private handleCustomResponseAction(action: Action): Response {
     logger.info('Applying custom response');
-    
+
     let contentType = 'text/plain';
     if (action.bodyType === 'json') {
       contentType = 'application/json';
     } else if (action.bodyType === 'html') {
       contentType = 'text/html';
     }
-    
+
     return new Response(action.body, {
       status: action.statusCode || HTTP_STATUS.OK,
       headers: {
@@ -170,7 +171,7 @@ export class ActionHandlerService {
     action: Action
   ): Promise<Response> {
     logger.info('Applying rate limit action');
-    
+
     // Use custom response if defined in the action
     if (action && action.statusCode && action.body) {
       let contentType = 'text/plain';
@@ -179,7 +180,7 @@ export class ActionHandlerService {
       } else if (action.bodyType === 'html') {
         contentType = 'text/html';
       }
-      
+
       return new Response(action.body, {
         status: parseInt(action.statusCode.toString()),
         headers: {
@@ -187,11 +188,15 @@ export class ActionHandlerService {
         },
       });
     }
-    
+
     // Default rate limit behavior
     if (request.headers.get('Accept')?.includes('text/html')) {
       // Return HTML rate limit page from static assets
-      return await StaticAssetsService.getInstance().serveRateLimitPage(_env, request, rateLimitInfo);
+      return await StaticAssetsService.getInstance().serveRateLimitPage(
+        _env,
+        request,
+        rateLimitInfo
+      );
     } else {
       // Return JSON rate limit response
       return new Response(

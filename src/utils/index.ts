@@ -9,10 +9,7 @@ export * from './transformations.ts';
  * @param fn - Function to execute and measure
  * @returns The result of the function
  */
-export async function trackPerformance<T>(
-  name: string,
-  fn: () => Promise<T>
-): Promise<T> {
+export async function trackPerformance<T>(name: string, fn: () => Promise<T>): Promise<T> {
   const startTime = Date.now();
   try {
     return await fn();
@@ -40,5 +37,5 @@ export const logger = {
   },
   error: (message: string, error?: any) => {
     console.error(message, error instanceof Error ? error.stack : JSON.stringify(error));
-  }
+  },
 };

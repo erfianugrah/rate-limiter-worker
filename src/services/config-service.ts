@@ -1,5 +1,5 @@
-import { Config, Env, Rule } from '../types/index.ts';
 import { CONFIG } from '../constants/index.ts';
+import { Config, Env, Rule } from '../types/index.ts';
 import { logger, trackPerformance, transformConfigForWorker } from '../utils/index.ts';
 
 /**
@@ -21,7 +21,7 @@ export class ConfigService {
     }
     return ConfigService.instance;
   }
-  
+
   /**
    * Invalidate the config cache to force a fresh fetch
    */
@@ -39,20 +39,20 @@ export class ConfigService {
    */
   public async getConfig(env: Env, ctx?: ExecutionContext): Promise<Config | null> {
     const now = Date.now();
-    
+
     // Return fresh cached config immediately
-    if (this.cachedConfig && (now - this.lastConfigFetch < CONFIG.CACHE_TTL)) {
+    if (this.cachedConfig && now - this.lastConfigFetch < CONFIG.CACHE_TTL) {
       logger.debug('Using fresh cached config');
       return this.cachedConfig;
     }
-    
+
     // Stale-while-revalidate pattern - use stale cache while refreshing in background
     if (this.cachedConfig && !this.isRefreshing && ctx) {
       logger.debug('Using stale cache while refreshing in background');
       ctx.waitUntil(this.refreshConfigAsync(env));
       return this.cachedConfig;
     }
-    
+
     // No valid cache, must wait for fetch
     logger.debug('No valid cache, fetching config directly');
     return await this.fetchAndUpdateConfig(env);
@@ -68,33 +68,31 @@ export class ConfigService {
       try {
         const configStorageId = env.CONFIG_STORAGE.idFromName('global');
         const configStorage = env.CONFIG_STORAGE.get(configStorageId);
-        const configResponse = await configStorage.fetch(
-          new Request(CONFIG.ENDPOINT)
-        );
-        
+        const configResponse = await configStorage.fetch(new Request(CONFIG.ENDPOINT));
+
         if (!configResponse.ok) {
           throw new Error(
             `Failed to fetch config: ${configResponse.status} ${configResponse.statusText}`
           );
         }
-        
+
         // Parse the raw config
-        const rawConfig = await configResponse.json();
-        
+        const rawConfig = (await configResponse.json()) as { rules?: any[] } | null;
+
         logger.debug('Fetched raw config', rawConfig);
-        
+
         if (!rawConfig || !Array.isArray(rawConfig.rules) || rawConfig.rules.length === 0) {
           logger.warn('Config is empty or invalid');
           return null;
         }
-        
+
         // Transform the config from canonical format to worker format
         const workerConfig = transformConfigForWorker(rawConfig);
         logger.debug('Transformed config for worker', workerConfig);
-        
+
         this.cachedConfig = workerConfig;
         this.lastConfigFetch = Date.now();
-        
+
         logger.info(`New config fetched and cached at ${this.lastConfigFetch}`);
         return this.cachedConfig;
       } catch (error) {
@@ -111,7 +109,7 @@ export class ConfigService {
   private async refreshConfigAsync(env: Env): Promise<void> {
     if (this.isRefreshing) return;
     this.isRefreshing = true;
-    
+
     try {
       logger.debug('Background refresh: Fetching new config...');
       await this.fetchAndUpdateConfig(env);
@@ -132,12 +130,12 @@ export class ConfigService {
       logger.warn(`Rule ${rule.name} is missing initialMatch`);
       return false;
     }
-    
+
     if (rule.elseIfActions && rule.elseIfActions.length > 0 && !rule.elseAction) {
       logger.warn(`Rule ${rule.name} has elseIfActions but no elseAction`);
       return false;
     }
-    
+
     return true;
   }
 }

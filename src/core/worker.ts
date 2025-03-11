@@ -1,13 +1,13 @@
-import { Env } from "../types";
+import { RATE_LIMIT } from '../constants';
 import {
   ActionHandlerService,
   ConditionEvaluatorService,
   ConfigService,
   RateLimiterService,
   StaticAssetsService,
-} from "../services";
-import { logger, trackPerformance } from "../utils";
-import { RATE_LIMIT } from "../constants";
+} from '../services';
+import { Env } from '../types';
+import { logger, trackPerformance } from '../utils';
 
 /**
  * Main worker handler
@@ -20,13 +20,9 @@ export default {
    * @param ctx - Execution context
    * @returns Response
    */
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<Response> {
-    return await trackPerformance("worker.fetch", async () => {
-      logger.info("Received request for URL", { url: request.url });
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return await trackPerformance('worker.fetch', async () => {
+      logger.info('Received request for URL', { url: request.url });
       const url = new URL(request.url);
 
       // Initialize services
@@ -37,25 +33,25 @@ export default {
       const staticAssetsService = StaticAssetsService.getInstance();
 
       // Handle rate limit page requests
-      if (request.headers.get(RATE_LIMIT.HEADERS.SERVE_PAGE) === "true") {
+      if (request.headers.get(RATE_LIMIT.HEADERS.SERVE_PAGE) === 'true') {
         // Safely parse rate limit info with validation
         let rateLimitInfo;
         try {
-          const infoHeader = request.headers.get(RATE_LIMIT.HEADERS.INFO) || "{}";
+          const infoHeader = request.headers.get(RATE_LIMIT.HEADERS.INFO) || '{}';
           rateLimitInfo = JSON.parse(infoHeader);
-          
+
           // Validate expected fields
           if (typeof rateLimitInfo !== 'object') {
             throw new Error('Invalid rateLimitInfo format');
           }
         } catch (error) {
-          logger.error("Failed to parse rate limit info", error);
-          rateLimitInfo = { 
+          logger.error('Failed to parse rate limit info', error);
+          rateLimitInfo = {
             retryAfter: 60,
             limit: 100,
             period: 60,
             reset: Math.floor(Date.now() / 1000) + 60,
-            resetFormatted: new Date(Date.now() + 60000).toUTCString()
+            resetFormatted: new Date(Date.now() + 60000).toUTCString(),
           };
         }
 
@@ -68,39 +64,32 @@ export default {
         const config = await configService.getConfig(env, ctx);
 
         if (!config || config.rules.length === 0) {
-          logger.info(
-            "No rate limiting rules configured, passing through request",
-          );
+          logger.info('No rate limiting rules configured, passing through request');
           return await globalThis.fetch(request);
         }
 
         logger.info(`Loaded ${config.rules.length} rate limiting rules`);
 
         // Find matching rule
-        const matchingRule = await conditionEvaluator.findMatchingRule(
-          request,
-          config,
-        );
+        const matchingRule = await conditionEvaluator.findMatchingRule(request, config);
 
         if (!matchingRule) {
-          logger.info(
-            "Request does not match any criteria, passing through to origin",
-          );
+          logger.info('Request does not match any criteria, passing through to origin');
           return await globalThis.fetch(request);
         }
 
-        logger.info("Request matches criteria for rule", {
+        logger.info('Request matches criteria for rule', {
           name: matchingRule.name,
           action: matchingRule.initialMatch.action.type,
         });
 
         // Handle rate limit info path
         if (url.pathname === env.RATE_LIMIT_INFO_PATH) {
-          logger.info("Serving rate limit info page");
+          logger.info('Serving rate limit info page');
           const { rateLimitInfo } = await rateLimiterService.handleRateLimit(
             request,
             env,
-            matchingRule,
+            matchingRule
           );
 
           // Use the static assets service to serve the rate limit info page
@@ -108,44 +97,38 @@ export default {
         }
 
         // Apply rate limiting
-        const { rateLimitInfo, rateLimitResponse } = await rateLimiterService
-          .handleRateLimit(
-            request,
-            env,
-            matchingRule,
-          );
+        const { rateLimitInfo, rateLimitResponse } = await rateLimiterService.handleRateLimit(
+          request,
+          env,
+          matchingRule
+        );
 
         let response;
         if (rateLimitInfo.allowed) {
-          logger.info("Rate limit not exceeded, forwarding request");
+          logger.info('Rate limit not exceeded, forwarding request');
           response = await globalThis.fetch(request);
 
-          if (matchingRule.initialMatch.action.type === "simulate") {
+          if (matchingRule.initialMatch.action.type === 'simulate') {
             response = new Response(response.body, response);
-            response.headers.set(RATE_LIMIT.HEADERS.SIMULATED, "true");
+            response.headers.set(RATE_LIMIT.HEADERS.SIMULATED, 'true');
           }
         } else {
-          logger.info("Rate limit exceeded, applying action", {
+          logger.info('Rate limit exceeded, applying action', {
             action: matchingRule.initialMatch.action.type,
           });
-          response = await actionHandler.handleAction(
-            env,
-            request,
-            rateLimitInfo,
-            matchingRule,
-          );
+          response = await actionHandler.handleAction(env, request, rateLimitInfo, matchingRule);
         }
 
         return actionHandler.applyRateLimitHeaders(response, rateLimitResponse);
       } catch (error) {
-        logger.error("Error in rate limiting", error);
+        logger.error('Error in rate limiting', error);
         // Return a 500 error response instead of passing through
         const errorHeaders = new Headers();
-        errorHeaders.set("Content-Type", "application/json");
-        return new Response(
-          JSON.stringify({ error: "Rate limiting service error" }),
-          { status: 500, headers: errorHeaders }
-        );
+        errorHeaders.set('Content-Type', 'application/json');
+        return new Response(JSON.stringify({ error: 'Rate limiting service error' }), {
+          status: 500,
+          headers: errorHeaders,
+        });
       }
     });
   },
@@ -163,22 +146,22 @@ export default {
 
     for (const message of batch.messages) {
       try {
-        if (message.body && message.body.type === "config_update") {
-          logger.info("Received config update notification");
+        if (message.body && message.body.type === 'config_update') {
+          logger.info('Received config update notification');
           // First invalidate the cache
           configService.invalidateCache();
           // Then fetch fresh config
           await configService.getConfig(env, ctx);
-          logger.info("Config refreshed from update notification");
+          logger.info('Config refreshed from update notification');
           await message.ack();
         } else {
-          logger.info("Received unexpected message type", {
+          logger.info('Received unexpected message type', {
             type: message.body?.type,
           });
           await message.ack();
         }
       } catch (error) {
-        logger.error("Error processing queue message", error);
+        logger.error('Error processing queue message', error);
       }
     }
   },

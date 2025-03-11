@@ -1,16 +1,13 @@
-import { 
-  FingerprintConfig, 
-  FingerprintParameter 
-} from '../types/index.ts';
-import { 
-  getClientIP, 
-  getNestedValue, 
-  getRequestBody, 
-  hashValue, 
-  parseCookies, 
-  logger 
-} from '../utils/index.ts';
 import { RATE_LIMIT } from '../constants/index.ts';
+import { FingerprintConfig, FingerprintParameter } from '../types/index.ts';
+import {
+  getClientIP,
+  getNestedValue,
+  getRequestBody,
+  hashValue,
+  parseCookies,
+  logger,
+} from '../utils/index.ts';
 
 /**
  * Service for generating unique client fingerprints for rate limiting
@@ -38,9 +35,9 @@ export class FingerprintService {
    * @returns Unique client identifier string
    */
   public async getClientIdentifier(
-    request: Request, 
+    request: Request,
     ruleName: string,
-    fingerprintConfig?: FingerprintConfig, 
+    fingerprintConfig?: FingerprintConfig,
     cfData?: any
   ): Promise<string> {
     // If no fingerprint config is provided, use IP address as fallback
@@ -55,23 +52,19 @@ export class FingerprintService {
       } catch (error) {
         logger.warn(`Failed to get IP fallback for rule ${ruleName}`, error);
       }
-      
+
       // If IP fallback fails, use default (but this is less precise)
       return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:default`;
     }
 
     try {
-      const fingerprint = await this.generateFingerprint(
-        request,
-        fingerprintConfig,
-        cfData
-      );
-      
+      const fingerprint = await this.generateFingerprint(request, fingerprintConfig, cfData);
+
       logger.debug(`Generated fingerprint for rule ${ruleName}: ${fingerprint}`);
       return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:fingerprint:${fingerprint}`;
     } catch (error) {
       logger.error(`Error generating fingerprint for rule ${ruleName}`, error);
-      
+
       // On error, try IP fallback instead of throwing
       try {
         const clientIP = await this.getClientIPFallback(request, cfData);
@@ -82,13 +75,13 @@ export class FingerprintService {
       } catch (ipError) {
         logger.warn(`IP fallback also failed for rule ${ruleName}`, ipError);
       }
-      
+
       // If both fingerprint and IP fallback fail, use default with warning
       logger.warn(`Using default identifier for rule ${ruleName} after all fallbacks failed`);
       return `${RATE_LIMIT.STORAGE_PREFIX}${ruleName}:default`;
     }
   }
-  
+
   /**
    * Get client IP address as fallback identifier
    * @param request - The HTTP request
@@ -100,12 +93,13 @@ export class FingerprintService {
     if (cfData?.clientIP) {
       return cfData.clientIP;
     }
-    
+
     // Try to get IP from headers
-    const forwardedFor = request.headers.get('CF-Connecting-IP') || 
-                         request.headers.get('X-Forwarded-For') ||
-                         request.headers.get('X-Real-IP');
-                         
+    const forwardedFor =
+      request.headers.get('CF-Connecting-IP') ||
+      request.headers.get('X-Forwarded-For') ||
+      request.headers.get('X-Real-IP');
+
     if (forwardedFor) {
       // Use the first IP in case of comma-separated list
       const clientIP = forwardedFor.split(',')[0].trim();
@@ -113,7 +107,7 @@ export class FingerprintService {
         return clientIP;
       }
     }
-    
+
     return null;
   }
 
@@ -135,14 +129,14 @@ export class FingerprintService {
     const components = await Promise.all(
       parameters.map(async (param) => {
         const value = await this.extractParameterValue(request, param, cfData);
-        return value !== undefined && value !== null ? value.toString() : "";
+        return value !== undefined && value !== null ? value.toString() : '';
       })
     );
 
     logger.debug('Final fingerprint components', components);
-    const fingerprint = await hashValue(components.join("|"));
+    const fingerprint = await hashValue(components.join('|'));
     logger.debug('Generated fingerprint', fingerprint);
-    
+
     return fingerprint;
   }
 
@@ -154,13 +148,14 @@ export class FingerprintService {
    * @returns Extracted parameter value
    */
   private async extractParameterValue(
-    request: Request, 
-    param: FingerprintParameter, 
+    request: Request,
+    param: FingerprintParameter,
     cfData?: any
   ): Promise<string | null> {
     // Extract header name-value pairs
     if (param.name === 'headers.nameValue') {
-      return param.headerName && param.headerValue &&
+      return param.headerName &&
+        param.headerValue &&
         request.headers.get(param.headerName) === param.headerValue
         ? `${param.headerName}:${param.headerValue}`
         : null;
@@ -181,7 +176,8 @@ export class FingerprintService {
     // Extract cookie name-value pairs
     if (param.name === 'headers.cookieNameValue') {
       const cookies = parseCookies(request.headers.get('cookie'));
-      return param.cookieName && param.cookieValue &&
+      return param.cookieName &&
+        param.cookieValue &&
         cookies[param.cookieName] === param.cookieValue
         ? `${param.cookieName}=${param.cookieValue}`
         : null;
@@ -210,11 +206,11 @@ export class FingerprintService {
     // Extract body content
     if (param.name === 'body' || param.name.startsWith('body.')) {
       const bodyContent = await getRequestBody(request);
-      
+
       if (param.name === 'body') {
         return bodyContent;
       }
-      
+
       try {
         return getNestedValue(JSON.parse(bodyContent), param.name.slice(5));
       } catch (e) {

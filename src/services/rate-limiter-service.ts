@@ -1,7 +1,7 @@
-import { DurableObjectState, Env, RateLimitInfo, RateLimitResult, Rule } from '../types/index.ts';
-import { RATE_LIMIT } from '../constants/index.ts';
-import { logger, trackPerformance } from '../utils/index.ts';
 import { FingerprintService } from './fingerprint-service.ts';
+import { RATE_LIMIT } from '../constants/index.ts';
+import { DurableObjectState, Env, RateLimitInfo, RateLimitResult, Rule } from '../types/index.ts';
+import { logger, trackPerformance } from '../utils/index.ts';
 
 // Define the CloudFlare Durable Object storage interface
 interface CFDurableObjectStorage {
@@ -16,7 +16,7 @@ interface CFDurableObjectStorage {
  */
 export class RateLimiterService {
   private static instance: RateLimiterService;
-  
+
   constructor() {
     // Initialize any required services
   }
@@ -71,9 +71,9 @@ export class RateLimiterService {
       });
 
       const rateLimitResponse = await rateLimiter.fetch(rateLimiterRequest);
-      return { 
-        rateLimitInfo: await rateLimitResponse.json(), 
-        rateLimitResponse 
+      return {
+        rateLimitInfo: await rateLimitResponse.json(),
+        rateLimitResponse,
       };
     });
   }
@@ -107,21 +107,21 @@ export class RateLimiterService {
       // Get existing timestamps for this client
       const data = await storage.get(clientIdentifier);
       let timestamps: number[] = data ? JSON.parse(data) : [];
-      
+
       // Filter timestamps to only include those within the current window
       // Performance optimization: sort once and use binary search if large dataset
       const windowStart = now - windowSize;
-      
+
       if (timestamps.length > 100) {
         // For large datasets, binary search is more efficient
         // First sort in case timestamps were added out of order
         timestamps.sort((a, b) => a - b);
-        
+
         // Find the index of the first timestamp in the current window using binary search
         let start = 0;
         let end = timestamps.length - 1;
         let windowStartIndex = timestamps.length;
-        
+
         while (start <= end) {
           const mid = Math.floor((start + end) / 2);
           if (timestamps[mid] >= windowStart) {
@@ -131,7 +131,7 @@ export class RateLimiterService {
             start = mid + 1;
           }
         }
-        
+
         // Slice the array to include only timestamps in the window
         timestamps = timestamps.slice(windowStartIndex);
       } else {
@@ -141,7 +141,7 @@ export class RateLimiterService {
 
       // Check if client has exceeded the rate limit
       const isAllowed = timestamps.length < limit;
-      
+
       // Add current timestamp if allowed
       if (isAllowed) {
         timestamps.push(now);
@@ -205,7 +205,7 @@ export class RateLimiterService {
   ): Response {
     // Always use the top-level rule.rateLimit.limit
     const limit = rule.rateLimit.limit;
-      
+
     const headers = new Headers({
       'Content-Type': 'application/json',
       [RATE_LIMIT.HEADERS.LIMIT]: limit.toString(),
@@ -232,12 +232,13 @@ export class RateLimiterService {
       responseBody.retryAfter = parseFloat(retryAfter.toFixed(3));
     }
 
-    const status = action.type === 'customResponse'
-      ? action.statusCode ||
-        (isAllowed ? RATE_LIMIT.DEFAULT_STATUS_CODE : RATE_LIMIT.EXCEEDED_STATUS)
-      : isAllowed
-      ? RATE_LIMIT.DEFAULT_STATUS_CODE
-      : RATE_LIMIT.EXCEEDED_STATUS;
+    const status =
+      action.type === 'customResponse'
+        ? action.statusCode ||
+          (isAllowed ? RATE_LIMIT.DEFAULT_STATUS_CODE : RATE_LIMIT.EXCEEDED_STATUS)
+        : isAllowed
+          ? RATE_LIMIT.DEFAULT_STATUS_CODE
+          : RATE_LIMIT.EXCEEDED_STATUS;
 
     return new Response(JSON.stringify(responseBody), { status, headers });
   }
@@ -260,7 +261,7 @@ class RateLimiterDurableObject {
   async fetch(request: Request): Promise<Response> {
     const fetchStartTime = Date.now();
     logger.debug('RateLimiter: Received request');
-    
+
     try {
       const rule = this.parseRule(request);
       if (!rule) {
@@ -274,21 +275,21 @@ class RateLimiterDurableObject {
 
       // Process rate limit request
       try {
-        const payload = await request.json() as { cf?: any, body?: string };
+        const payload = (await request.json()) as { cf?: any; body?: string };
         const cf = payload?.cf || {};
         const now = Date.now();
 
         // Get client identifier based on fingerprint configuration
         let clientIdentifier = await this.fingerprintService.getClientIdentifier(
-          request, 
+          request,
           rule.name,
-          rule.fingerprint, 
+          rule.fingerprint,
           cf
         );
-        
+
         // Sanitize client identifier for safe storage
         clientIdentifier = this.sanitizeStorageKey(clientIdentifier);
-        
+
         logger.debug(`Processing request for client identifier: ${clientIdentifier}`);
 
         // The request has already been matched by the condition evaluator in worker.ts
@@ -297,7 +298,7 @@ class RateLimiterDurableObject {
 
         if (isInitialMatch) {
           logger.debug('Initial match conditions met, applying rate limit');
-          
+
           // Check if client has exceeded rate limit
           const { isAllowed, remaining, resetTime } = await this.rateLimiterService.checkRateLimit(
             clientIdentifier,
@@ -305,7 +306,7 @@ class RateLimiterDurableObject {
             this.state.storage as CFDurableObjectStorage,
             now
           );
-          
+
           // Create response with rate limit info
           return this.rateLimiterService.createRateLimitResponse(
             isAllowed,
@@ -357,7 +358,8 @@ class RateLimiterDurableObject {
     try {
       const ruleJson = request.headers.get(RATE_LIMIT.HEADERS.CONFIG) || '{}';
       const rule = JSON.parse(ruleJson) as Rule;
-      const isValidRule = rule?.name &&
+      const isValidRule =
+        rule?.name &&
         rule.rateLimit?.limit &&
         rule.rateLimit?.period &&
         rule.initialMatch?.action?.type;
@@ -366,11 +368,14 @@ class RateLimiterDurableObject {
         logger.debug('RateLimiter: Parsed rule', rule);
         return rule;
       }
-      
+
       logger.error('RateLimiter: Invalid rule structure', rule);
       return null;
     } catch (error) {
-      logger.error('RateLimiter: Error parsing rule', error instanceof Error ? error.message : String(error));
+      logger.error(
+        'RateLimiter: Error parsing rule',
+        error instanceof Error ? error.message : String(error)
+      );
       return null;
     }
   }
@@ -383,17 +388,17 @@ class RateLimiterDurableObject {
    */
   private async getRateLimitInfo(request: Request, rule: Rule): Promise<Response> {
     try {
-      const payload = await request.json() as { cf?: any, body?: string };
+      const payload = (await request.json()) as { cf?: any; body?: string };
       const cf = payload?.cf || {};
       const now = Date.now();
-      
+
       let clientIdentifier = await this.fingerprintService.getClientIdentifier(
-        request, 
+        request,
         rule.name,
-        rule.fingerprint, 
+        rule.fingerprint,
         cf
       );
-      
+
       // Sanitize client identifier for safe storage
       clientIdentifier = this.sanitizeStorageKey(clientIdentifier);
 
@@ -436,7 +441,7 @@ class RateLimiterDurableObject {
       headers: { 'Content-Type': 'application/json' },
     });
   }
-  
+
   /**
    * Sanitize a storage key to ensure it's safe to use
    * @param key - The raw storage key
@@ -446,15 +451,15 @@ class RateLimiterDurableObject {
     if (!key) {
       return 'unknown_client';
     }
-    
+
     // Limit key length to avoid excessive storage costs
     const maxKeyLength = 512;
     if (key.length > maxKeyLength) {
       key = key.substring(0, maxKeyLength);
     }
-    
+
     // Remove invalid characters that might cause issues in storage
     // Allow alphanumeric, colon, hyphen, underscore, and period
-    return key.replace(/[^\w\-\.:]/g, '_');
+    return key.replace(/[^\w\-.:]/g, '_');
   }
 }

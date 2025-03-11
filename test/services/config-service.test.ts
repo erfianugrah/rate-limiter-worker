@@ -85,7 +85,7 @@ describe('ConfigService', () => {
       })
     );
     
-    expect(config).toEqual({
+    expect(config).toMatchObject({
       rules: [
         {
           name: 'test-rule',
@@ -108,7 +108,7 @@ describe('ConfigService', () => {
     const config = await configService.getConfig(mockEnv);
     
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(config).toEqual({
+    expect(config).toMatchObject({
       rules: [
         {
           name: 'test-rule',

@@ -10,9 +10,9 @@
 export async function hashValue(value: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(value);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -20,12 +20,11 @@ export async function hashValue(value: string): Promise<string> {
  * @returns A CryptoKey object for AES-GCM encryption
  */
 export async function generateEncryptionKey(): Promise<CryptoKey> {
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"]
-  );
-  
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+    'encrypt',
+    'decrypt',
+  ]);
+
   // Ensure we're returning a CryptoKey, not a CryptoKeyPair
   return key as CryptoKey;
 }
@@ -46,7 +45,7 @@ export async function encryptData(
 
   const encryptedData = await crypto.subtle.encrypt(
     {
-      name: "AES-GCM",
+      name: 'AES-GCM',
       iv: iv,
     },
     key,
@@ -70,7 +69,7 @@ export async function decryptData(
 ): Promise<string> {
   const decryptedData = await crypto.subtle.decrypt(
     {
-      name: "AES-GCM",
+      name: 'AES-GCM',
       iv: iv,
     },
     key,
@@ -87,7 +86,7 @@ export async function decryptData(
  * @returns Array of bytes representing the key
  */
 export async function exportKey(key: CryptoKey): Promise<number[]> {
-  const exported = await crypto.subtle.exportKey("raw", key);
+  const exported = await crypto.subtle.exportKey('raw', key);
   return Array.from(new Uint8Array(exported as ArrayBuffer));
 }
 
@@ -98,11 +97,11 @@ export async function exportKey(key: CryptoKey): Promise<number[]> {
  */
 export async function importKey(keyData: number[]): Promise<CryptoKey> {
   const key = await crypto.subtle.importKey(
-    "raw",
+    'raw',
     new Uint8Array(keyData),
-    { name: "AES-GCM", length: 256 } as { name: string; length: number },
+    { name: 'AES-GCM', length: 256 } as { name: string; length: number },
     true,
-    ["encrypt", "decrypt"]
+    ['encrypt', 'decrypt']
   );
   return key;
 }

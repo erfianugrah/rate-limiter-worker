@@ -10,6 +10,9 @@ export interface FingerprintParameter {
   headerValue?: string;
   cookieName?: string;
   cookieValue?: string;
+  // Add support for body fields to align with config storage
+  bodyField?: string;
+  bodyFieldName?: string;
 }
 
 export interface FingerprintConfig {
@@ -27,9 +30,11 @@ export interface Condition {
 
 export interface Action {
   type: string;
-  statusCode?: number;
+  statusCode?: number; // Worker uses statusCode internally
+  status?: number; // For compatibility with config storage format
   body?: string;
   bodyType?: string;
+  parameters?: Record<string, unknown>; // For compatibility with config storage format
 }
 
 export interface ConditionGroup {
@@ -49,7 +54,10 @@ export interface Rule {
   elseIfActions?: ConditionGroup[];
   elseAction?: Action;
   version?: number;
-  order?: number;
+  order?: number; // Worker uses order internally
+  priority?: number; // For compatibility with config storage format
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Config {

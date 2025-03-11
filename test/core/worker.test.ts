@@ -6,7 +6,8 @@ import { RATE_LIMIT } from '../../src/constants';
 
 // Create mock instances
 const mockConfigService = {
-  getConfig: vi.fn()
+  getConfig: vi.fn(),
+  invalidateCache: vi.fn()
 };
 
 const mockConditionEvaluator = {
@@ -182,10 +183,14 @@ describe('Worker', () => {
       ]
     };
     
+    // Mock environment
+    const mockEnv = { CONFIG_STORAGE: {} };
+    
     // Execute
-    await worker.queue(batch as any, {} as any, { waitUntil: vi.fn() } as any);
+    await worker.queue(batch as any, mockEnv as any, { waitUntil: vi.fn() } as any);
     
     // Verify
+    expect(mockConfigService.invalidateCache).toHaveBeenCalled();
     expect(mockConfigService.getConfig).toHaveBeenCalled();
     expect(ackFn).toHaveBeenCalled();
   });
